@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kronos - Планировщик</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg: var(--tg-theme-bg-color, #ffffff);
+            --text: var(--tg-theme-text-color, #000000);
+            --hint: var(--tg-theme-hint-color, #999999);
+            --link: var(--tg-theme-link-color, #2481cc);
+            --button: var(--tg-theme-button-color, #2481cc);
+            --button-text: var(--tg-theme-button-text-color, #ffffff);
+            --secondary: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .stats {
+            background: var(--secondary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        
+        .stat-item {
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--button);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--hint);
+            margin-top: 4px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: var(--secondary);
+            color: var(--text);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            background: var(--button);
+            color: var(--button-text);
+        }
+        
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .task-card {
+            background: var(--secondary);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .task-card:active {
+            transform: scale(0.98);
+        }
+        
+        .task-card.completed {
+            opacity: 0.6;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        
+        .task-title {
+            font-size: 16px;
+            font-weight: 600;
+            flex: 1;
+        }
+        
+        .task-priority {
+            font-size: 20px;
+        }
+        
+        .task-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--hint);
+        }
+        
+        .task-category {
+            background: var(--bg);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        .fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--button);
+            color: var(--button-text);
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: flex-end;
+        }
+        
+        .modal.open {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--bg);
+            width: 100%;
+            border-radius: 20px 20px 0 0;
+            padding: 24px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--hint);
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: var(--hint);
+            margin-bottom: 8px;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--secondary);
+            border-radius: 8px;
+            font-size: 16px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: var(--button);
+            color: var(--button-text);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .btn-secondary {
+            background: var(--secondary);
+            color: var(--text);
+        }
+        
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .btn-row .btn {
+            flex: 1;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--hint);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--button);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .checkbox.checked {
+            background: var(--button);
+            color: var(--button-text);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Kronos</h1>
+        <span id="date-display"></span>
+    </div>
+    
+    <div class="stats">
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-value" id="completed-count">0</div>
+                <div class="stat-label">Выполнено</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="pending-count">0</div>
+                <div class="stat-label">В процессе</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="progress-percent">0%</div>
+                <div class="stat-label">Прогресс</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab active" data-filter="all">Все</button>
+        <button class="tab" data-filter="pending">Активные</button>
+        <button class="tab" data-filter="completed">Готово</button>
+    </div>
+    
+    <div class="task-list" id="task-list"></div>
+    
+    <button class="fab" id="add-btn">+</button>
+    
+    <div class="modal" id="add-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Новая задача</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="task-form">
+                <div class="form-group">
+                    <label>Название</label>
+                    <input type="text" id="task-title" required placeholder="Что нужно сделать?">
+                </div>
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea id="task-description" placeholder="Детали задачи..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Категория</label>
+                    <select id="task-category">
+                        <option value="general">🎯 Прочее</option>
+                        <option value="work">💼 Работа</option>
+                        <option value="home">🏠 Дом</option>
+                        <option value="study">📚 Учёба</option>
+                        <option value="sport">💪 Спорт</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Приоритет</label>
+                    <select id="task-priority">
+                        <option value="1">🔴 Высокий</option>
+                        <option value="2" selected>🟡 Средний</option>
+                        <option value="3">🟢 Низкий</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Дедлайн</label>
+                    <input type="date" id="task-deadline">
+                </div>
+                <button type="submit" class="btn">Добавить задачу</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal" id="view-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="view-title">Задача</h2>
+                <button class="modal-close" onclick="closeViewModal()">&times;</button>
+            </div>
+            <div id="view-content"></div>
+            <div class="btn-row">
+                <button class="btn" id="view-complete">Выполнить</button>
+                <button class="btn btn-secondary" id="view-delete">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        let tasks = [];
+        let currentFilter = 'all';
+        let currentTaskId = null;
+        
+        document.getElementById('date-display').textContent = 
+            new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+        
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentFilter = tab.dataset.filter;
+                renderTasks();
+            });
+        });
+        
+        document.getElementById('add-btn').addEventListener('click', () => {
+            document.getElementById('add-modal').classList.add('open');
+        });
+        
+        document.getElementById('task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            addTask();
+        });
+        
+        function closeModal() {
+            document.getElementById('add-modal').classList.remove('open');
+        }
+        
+        function closeViewModal() {
+            document.getElementById('view-modal').classList.remove('open');
+        }
+        
+        function addTask() {
+            const task = {
+                id: Date.now(),
+                title: document.getElementById('task-title').value,
+                description: document.getElementById('task-description').value,
+                category: document.getElementById('task-category').value,
+                priority: parseInt(document.getElementById('task-priority').value),
+                deadline: document.getElementById('task-deadline').value,
+                status: 'pending',
+                created_at: new Date().toISOString()
+            };
+            
+            tasks.push(task);
+            saveTasks();
+            renderTasks();
+            closeModal();
+            
+            tg.sendData(JSON.stringify({ action: 'add_task', ...task }));
+            
+            document.getElementById('task-form').reset();
+        }
+        
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.status = task.status === 'completed' ? 'pending' : 'completed';
+                saveTasks();
+                renderTasks();
+                tg.sendData(JSON.stringify({ 
+                    action: 'complete_task', 
+                    task_id: id 
+                }));
+            }
+        }
+        
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveTasks();
+            renderTasks();
+            closeViewModal();
+            tg.sendData(JSON.stringify({ action: 'delete_task', task_id: id }));
+        }
+        
+        function viewTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            currentTaskId = id;
+            
+            const priorityNames = { 1: 'Высокий', 2: 'Средний', 3: 'Низкий' };
+            const categoryNames = { general: 'Прочее', work: 'Работа', home: 'Дом', study: 'Учёба', sport: 'Спорт' };
+            
+            document.getElementById('view-title').textContent = task.title;
+            document.getElementById('view-content').innerHTML = `
+                <p><strong>Описание:</strong> ${task.description || 'не указано'}</p>
+                <p><strong>Категория:</strong> ${categoryNames[task.category] || task.category}</p>
+                <p><strong>Приоритет:</strong> ${priorityNames[task.priority]}</p>
+                <p><strong>Дедлайн:</strong> ${task.deadline || 'не указан'}</p>
+            `;
+            
+            document.getElementById('view-complete').textContent = 
+                task.status === 'completed' ? 'Вернуть' : 'Выполнить';
+            document.getElementById('view-complete').onclick = () => {
+                toggleTask(id);
+                closeViewModal();
+            };
+            document.getElementById('view-delete').onclick = () => deleteTask(id);
+            
+            document.getElementById('view-modal').classList.add('open');
+        }
+        
+        function renderTasks() {
+            const list = document.getElementById('task-list');
+            
+            let filtered = tasks;
+            if (currentFilter === 'pending') {
+                filtered = tasks.filter(t => t.status !== 'completed');
+            } else if (currentFilter === 'completed') {
+                filtered = tasks.filter(t => t.status === 'completed');
+            }
+            
+            const completed = tasks.filter(t => t.status === 'completed').length;
+            const pending = tasks.filter(t => t.status !== 'completed').length;
+            const total = tasks.length;
+            const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+            
+            document.getElementById('completed-count').textContent = completed;
+            document.getElementById('pending-count').textContent = pending;
+            document.getElementById('progress-percent').textContent = progress + '%';
+            
+            if (filtered.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Нет задач</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const priorityEmoji = { 1: '🔴', 2: '🟡', 3: '🟢' };
+            const categoryEmoji = { general: '🎯', work: '💼', home: '🏠', study: '📚', sport: '💪' };
+            
+            list.innerHTML = filtered.map(task => `
+                <div class="task-card ${task.status === 'completed' ? 'completed' : ''}" onclick="viewTask(${task.id})">
+                    <div class="task-header">
+                        <div class="checkbox ${task.status === 'completed' ? 'checked' : ''}" 
+                             onclick="event.stopPropagation(); toggleTask(${task.id})">
+                            ${task.status === 'completed' ? '✓' : ''}
+                        </div>
+                        <span class="task-title">${task.title}</span>
+                        <span class="task-priority">${priorityEmoji[task.priority]}</span>
+                    </div>
+                    <div class="task-meta">
+                        <span class="task-category">${categoryEmoji[task.category]} ${task.category}</span>
+                        ${task.deadline ? `<span>📅 ${task.deadline}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function saveTasks() {
+            localStorage.setItem('kronos_tasks', JSON.stringify(tasks));
+        }
+        
+        function loadTasks() {
+            const saved = localStorage.getItem('kronos_tasks');
+            if (saved) {
+                tasks = JSON.parse(saved);
+            }
+            renderTasks();
+        }
+        
+        loadTasks();
+        
+        tg.MainButton.setText('Закрыть');
+        tg.MainButton.show();
+        tg.MainButton.onClick(() => tg.close());
+    </script>
+</body>
+</html>
